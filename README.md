@@ -4,28 +4,28 @@ An automated Python-based blockchain transaction risk-analysis pipeline supporti
 
 ## Architecture
 
-Ethereum JSON-RPC
-       ↓
-Live Transaction Ingestion
-       ↓
-Validation / Normalization
-       ↓
-SQLite
-       ↓
-SQL Analytics
- ├── JOIN
- ├── Window Functions
- └── Ranking
-       ↓
-Risk Indicators
- ├── Transaction Frequency
- ├── Gas Anomaly
- ├── Z-Score
- └── Risk Tier
-       ↓
-Anomaly Detection
-       ↓
-Plotly Dashboard
+    Ethereum JSON-RPC
+           ↓
+    Live Transaction Ingestion
+           ↓
+    Validation / Normalization
+           ↓
+    SQLite
+           ↓
+    SQL Analytics
+     ├── JOIN
+     ├── Window Functions
+     └── Ranking
+           ↓
+    Risk Indicators
+     ├── Transaction Frequency
+     ├── Gas Anomaly
+     ├── Z-Score
+     └── Risk Tier
+           ↓
+    Anomaly Detection
+           ↓
+    Plotly Dashboard
 
 ## Core Features & Implementation
 * **Hybrid Ingestion Layer:** Connects to public Ethereum nodes via JSON-RPC (`requests`) to pull real mainnet block transactions, equipped with an automated fallback mechanism to a robust synthetic backtesting framework if network rate limits or disruptions occur.
@@ -43,6 +43,7 @@ Plotly Dashboard
 ## Getting Started
 1. Clone the repository:
    ```bash
-   git clone [https://github.com/shashini-karunarathna/crypto-risk-pipeline.git](https://github.com/shashini-karunarathna/crypto-risk-pipeline.git)
+   git clone https://github.com/shashini-karunarathna/crypto-risk-pipeline.git
+
 
    
