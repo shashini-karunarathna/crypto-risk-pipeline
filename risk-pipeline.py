@@ -5,9 +5,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-print("Initializing On-Chain Risk Pipeline & Embedded SQL Engine...")
+print("Initializing Advanced On-Chain Risk Pipeline & SQL Engine...")
 
-# 1. Simulate Transaction Data (matching your blockchain indexer structure)
+# 1. Simulate Transaction Data with Realistic Attributes
 np.random.seed(42)
 n_transactions = 500
 
@@ -24,19 +24,24 @@ data = {
 
 df = pd.DataFrame(data)
 
-# Inject intentional high-value spikes to simulate suspicious whale movements / risks
+# Inject high-value anomalies / whale spikes
 df.loc[15, "Value_ETH"] = 52.4
 df.loc[132, "Value_ETH"] = 68.9
 df.loc[410, "Value_ETH"] = 41.2
 
-# 2. Store Data into Local SQLite Database & Execute Advanced SQL Queries
+# 2. Compute Enhanced Risk Indicators (Frequency & Gas Spikes)
+df["Tx_Frequency"] = df.groupby("Sender")["Sender"].transform("count")
+gas_mean = df["Gas_Used"].mean()
+gas_std = df["Gas_Used"].std()
+df["Gas_Anomaly"] = df["Gas_Used"] > (gas_mean + 2 * gas_std)
+
+# 3. Push Data to Local SQLite Database
 conn = sqlite3.connect("crypto_risk.db")
 cursor = conn.cursor()
 
-# Push Pandas DataFrame directly into a SQL table named 'transactions'
 df.to_sql("transactions", conn, if_exists="replace", index=False)
 
-# Create a secondary reference table for Multi-Table Association (JOINs)
+# Create Reference Table for Multi-Table Association
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS wallet_risk_tags (
         Sender TEXT PRIMARY KEY,
@@ -44,48 +49,49 @@ cursor.execute("""
     )
 """)
 
-# Tag a subset of senders with risk profiles
 unique_senders = df["Sender"].unique()[:15]
 sample_tags = [(s, np.random.choice(["High-Risk Monitor", "Standard", "VIP Watchlist"])) for s in unique_senders]
 cursor.executemany("INSERT OR REPLACE INTO wallet_risk_tags (Sender, Risk_Tier) VALUES (?, ?)", sample_tags)
 conn.commit()
 
-# Advanced SQL Query: Multi-table JOIN + Window Function (Running Cumulative Volume)
+# 4. Advanced SQL Query: Multi-table JOIN, Window Functions (Running Cumulative & Rank)
 advanced_sql_query = """
 SELECT 
     t.TxHash,
     t.Sender,
     t.Value_ETH,
+    t.Tx_Frequency,
     COALESCE(w.Risk_Tier, 'Unclassified') AS Risk_Tier,
-    SUM(t.Value_ETH) OVER (PARTITION BY t.Sender ORDER BY t.TxHash) AS Running_Cumulative_Volume
+    SUM(t.Value_ETH) OVER (PARTITION BY t.Sender ORDER BY t.TxHash) AS Running_Cumulative_Volume,
+    RANK() OVER (PARTITION BY t.Sender ORDER BY t.Value_ETH DESC) AS Sender_Value_Rank
 FROM transactions t
 LEFT JOIN wallet_risk_tags w ON t.Sender = w.Sender
 LIMIT 10;
 """
 
-print("\n--- Executing Advanced SQL Query (Multi-Table Join & Window Function) ---")
+print("\n--- Executing Advanced SQL Query (JOIN + Window Functions: Cumulative Sum & Rank) ---")
 sql_result_df = pd.read_sql_query(advanced_sql_query, conn)
 print(sql_result_df.to_string(index=False))
-print("-------------------------------------------------------------------------\n")
+print("------------------------------------------------------------------------------------\n")
 
-# 3. Statistical Risk Backtesting (Z-Score Anomaly Detection)
+# 5. Statistical Risk Backtesting (Z-Score Anomaly Detection)
 mean_val = df["Value_ETH"].mean()
 std_val = df["Value_ETH"].std()
 
 df["Z_Score"] = (df["Value_ETH"] - mean_val) / std_val
-df["Is_Anomalous"] = df["Z_Score"] > 3
+df["Is_Anomalous"] = (df["Z_Score"] > 3) | df["Gas_Anomaly"]
 
 total_volume = df["Value_ETH"].sum()
 anomaly_count = df["Is_Anomalous"].sum()
 
-print(f"[SUCCESS] Analyzed {len(df)} transactions via SQL engine.")
+print(f"[SUCCESS] Analyzed {len(df)} transactions via enhanced SQL engine.")
 print(f"-> Total Volume Tracked: {total_volume:.2f} ETH")
-print(f"-> High-Risk Anomalies Flagged: {anomaly_count}")
+print(f"-> Multi-Factor Risk Anomalies Flagged: {anomaly_count}")
 
-# 4. Build Interactive Visual Dashboard using Plotly
+# 6. Build Interactive Visual Dashboard using Plotly
 fig = make_subplots(
     rows=2, cols=2,
-    subplot_titles=("Transaction Value Distribution", "Anomalous Volume Spikes", "Gas Usage vs Transfer Value", "Risk Summary KPIs"),
+    subplot_titles=("Transaction Value Distribution", "Risk Anomalies & Spikes", "Gas Usage vs Transfer Value", "Risk Summary KPIs"),
     specs=[[{"type": "xy"}, {"type": "xy"}], [{"type": "xy"}, {"type": "table"}]]
 )
 
@@ -95,7 +101,7 @@ fig.add_trace(
     row=1, col=1
 )
 
-# Chart 2: Scatter plot highlighting risk anomalies in red
+# Chart 2: Scatter plot highlighting multi-factor risk anomalies in red
 colors = ['red' if x else 'blue' for x in df["Is_Anomalous"]]
 fig.add_trace(
     go.Scatter(
@@ -107,12 +113,12 @@ fig.add_trace(
     row=1, col=2
 )
 
-# Chart 3: Gas vs Value Correlation
+# Chart 3: Gas vs Value Correlation colored by frequency
 fig.add_trace(
     go.Scatter(
         x=df["Gas_Used"], y=df["Value_ETH"],
         mode='markers',
-        marker=dict(color='purple', opacity=0.5),
+        marker=dict(color=df["Tx_Frequency"], colorscale='Viridis', showscale=True, size=8),
         name="Gas vs Value"
     ),
     row=2, col=1
@@ -131,15 +137,13 @@ fig.add_trace(
 )
 
 fig.update_layout(
-    title_text="<b>On-Chain Risk & Anomaly Monitoring Dashboard (SQL Integrated)</b>",
+    title_text="<b>Advanced On-Chain Risk & Anomaly Monitoring Dashboard</b>",
     template="plotly_white",
     height=800,
     showlegend=False
 )
 
-# Save dashboard as an interactive HTML file
 output_file = "risk_monitoring_dashboard.html"
 fig.write_html(output_file)
-print(f"[SUCCESS] Interactive dashboard generated and saved as '{output_file}'!")
+print(f"[SUCCESS] Updated interactive dashboard generated and saved as '{output_file}'!")
 conn.close()
-
